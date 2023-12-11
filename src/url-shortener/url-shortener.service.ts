@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { CreateUrlShortenerDto } from './dto/create-url-shortener.dto';
 import { UpdateUrlShortenerDto } from './dto/update-url-shortener.dto';
-import { isURL } from 'class-validator';
+import { isArray, isURL } from 'class-validator';
 import { nanoid } from 'nanoid';
 import { checkIfFileOrDirectoryExists, createFile, getFile, validUrl } from 'src/helpers/storage.helper';
 
@@ -18,23 +18,20 @@ export class UrlShortenerService {
     const urlPath = url.longUrl.substring(baseUrl.length + 1);
     const urlCode = nanoid(10);
     const newUrls = { longUrl: url.longUrl, shortUrl: `${baseUrl}/${urlCode}` }
-    console.log(newUrls);
 
     try {
       let data = [];
       if (checkIfFileOrDirectoryExists(`${filePath}/${fileName}`)) {
         const fileData = JSON.parse((await getFile(`${filePath}/${fileName}`)).toString());
-        console.log(fileData);
-        data.push(fileData);
-        console.log(fileData, 'data');
+        //data.push(fileData);
+        isArray(fileData) ? data = fileData : data.push(fileData);
       } else {
-        data = null;
+        data = [];
       }
       if (data.length > 0) {
-        console.log(data, 'enter')
         let urlCollection:any;
         urlCollection = data?.filter((x: any) => x.userID === req.user.userID);
-        if (urlCollection) {
+        if (urlCollection.length > 0) {
           urlCollection[0].urls.push(newUrls);
         } else {
           const newUser = { userID: req.user.userID, urls: [newUrls] };
@@ -44,7 +41,7 @@ export class UrlShortenerService {
         const newUser = { userID: req.user.userID, urls: [newUrls] };
         data.push(newUser);
       }
-      const csv = JSON.stringify(data[0]);
+      const csv = JSON.stringify(data);
       await createFile(filePath, fileName, csv);
       return {status:'success',newUrls: newUrls};
     } catch (error) {
@@ -59,7 +56,7 @@ export class UrlShortenerService {
       if (checkIfFileOrDirectoryExists(`${filePath}/${fileName}`)) {
         let data = [];
         const fileData = JSON.parse((await getFile(`${filePath}/${fileName}`)).toString());
-        data.push(fileData);
+        isArray(fileData) ? data = fileData : data.push(fileData);
         const result = data?.filter((x: any) => x.userID === req.user.userID);
         return { status: 'success', urls: result[0]?.urls ?? []};
       } else {
